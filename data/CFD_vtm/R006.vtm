@@ -1,0 +1,20 @@
+<VTKFile type="vtkMultiBlockDataSet" version="1.0" byte_order="LittleEndian" header_type="UInt64">
+  <vtkMultiBlockDataSet>
+    <DataSet index="0" name="internalMesh" file="R006/R006_0_0.vtu"/>
+    <Block index="1" name="boundary">
+      <DataSet index="0" name="INLET" file="R006/R006_1_0.vtp"/>
+      <DataSet index="1" name="OUTLET" file="R006/R006_2_0.vtp"/>
+      <DataSet index="2" name="WALL_SE" file="R006/R006_3_0.vtp"/>
+      <DataSet index="3" name="WALL_throat" file="R006/R006_4_0.vtp"/>
+      <DataSet index="4" name="WALL_entrance" file="R006/R006_5_0.vtp"/>
+    </Block>
+  </vtkMultiBlockDataSet>
+  <FieldData>
+    <DataArray type="Int8" Name="CasePath" NumberOfTuples="36" format="binary" RangeMin="0" RangeMax="122">
+      JAAAAAAAAABNOlxGREEtTk9aWkxFXEhhbXphX2Zsb3dyYXRlc1xSMDA2XAA=
+    </DataArray>
+    <DataArray type="Float64" Name="TimeValue" NumberOfTuples="1" format="binary" RangeMin="2" RangeMax="2">
+      CAAAAAAAAAAAAAAAAAAAQA==
+    </DataArray>
+  </FieldData>
+</VTKFile>

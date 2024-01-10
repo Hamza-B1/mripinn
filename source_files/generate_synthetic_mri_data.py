@@ -1,5 +1,6 @@
 import numpy as np
 
+
 def deresolution_and_add_noise(path_to_cfd_csv_data: str,
                                n: int, mean: float, std: float,
                                output_path: str):
