@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 import pandas as pd
 
+torch.set_default_dtype(torch.float32)
 device = ("cuda" if torch.cuda.is_available()
           else "mps"
 if torch.backends.mps.is_available()
@@ -10,9 +11,9 @@ else "cpu"
 print(f"Using {device} device")
 
 # Hyperparameters
-lr = 0.01
-activation_function = nn.Sigmoid()
-epochs = 1
+lr = 0.005
+activation_function = nn.ReLU()
+epochs = 10
 # Fluid quantities
 nu = 1
 rho = 1050
@@ -43,8 +44,8 @@ optimiser = torch.optim.Adam(model.parameters(), lr=lr)
 
 
 def physics_loss(input_tensor, num_points, output_tensor):
-    x, y, z = torch.split(input_tensor, num_points, dim=1)
-    u, v, w, p = torch.split(output_tensor, num_points, dim=1)
+    x, y, z = torch.split(input_tensor, num_points, dim=0)
+    u, v, w, p = torch.split(output_tensor, num_points, dim=0)
 
     u_x = torch.autograd.grad(u, x, grad_outputs=torch.ones_like(u), create_graph=True)[0]
     u_y = torch.autograd.grad(u, y, grad_outputs=torch.ones_like(u), create_graph=True)[0]
@@ -82,24 +83,35 @@ def physics_loss(input_tensor, num_points, output_tensor):
 
     return incompressibility_error + momentum_conservation_error_x + momentum_conservation_error_y + momentum_conservation_error_z
 
+inputs = []
+labels = []
 
-data = pd.read_csv("../data/CFD_vtm/csv_data/r001.csv")
+for i in (1, 6, 11):
+    data = pd.read_csv(f"../data/CFD_vtm/csv_data/r00{i}.csv")
 
-x_in, y_in, z_in, v_xin, v_yin, v_zin, p_in = (
-    torch.tensor(data["Points_0"].values, requires_grad=True).to(device),
-    torch.tensor(data["Points_1"].values, requires_grad=True).to(device),
-    torch.tensor(data["Points_2"].values, requires_grad=True).to(device),
-    torch.tensor(data["U_0"].values, requires_grad=True).to(device),
-    torch.tensor(data["U_1"].values, requires_grad=True).to(device),
-    torch.tensor(data["U_2"].values, requires_grad=True).to(device),
-    torch.tensor(data["p"].values, requires_grad=True).to(device),
-)
+    x_in, y_in, z_in, v_xin, v_yin, v_zin, p_in = (
+        torch.tensor(data["Points_0"].values, requires_grad=True).to(device),
+        torch.tensor(data["Points_1"].values, requires_grad=True).to(device),
+        torch.tensor(data["Points_2"].values, requires_grad=True).to(device),
+        torch.tensor(data["U_0"].values, requires_grad=True).to(device),
+        torch.tensor(data["U_1"].values, requires_grad=True).to(device),
+        torch.tensor(data["U_2"].values, requires_grad=True).to(device),
+        torch.tensor(data["p"].values, requires_grad=True).to(device),
+    )
 
-input_data = torch.stack((x_in, y_in, z_in), 1).to(device)
-label = torch.stack((v_xin, v_yin, v_zin, p_in), 1).to(device)
+    input_data = torch.stack((x_in, y_in, z_in), 1).float().to(device)
+    label = torch.stack((v_xin, v_yin, v_zin, p_in), 1).float().to(device)
+
+    inputs.append(input_data)
+    labels.append(label)
 
 for epoch in range(epochs):
-    num_of_points = x_in.size
+    for i in range(len(inputs)):
+        num_of_points = inputs[i].size()
+        predictions = model(inputs[i])
+        loss = mse_loss(predictions, labels[i]) #+ physics_loss(inputs[i], num_of_points, predictions)
+        optimiser.zero_grad()
+        loss.backward()
+        optimiser.step()
+        print(loss)
 
-    loss = mse_loss(input_data)
-    optimiser.zero_grad()
