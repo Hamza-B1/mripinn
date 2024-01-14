@@ -7,9 +7,9 @@ import import_data
 torch.set_default_dtype(torch.float64)
 
 # Hyperparameters
-lr = 0.01
-activation_function = nn.ReLU()
-epochs = 40
+lr = 0.003
+activation_function = nn.LeakyReLU()
+epochs = 200
 
 
 # In: x,y,z, Out: u,v,w,p
@@ -17,14 +17,13 @@ class SteadyNavierStokes(nn.Module):
     def __init__(self):
         super(SteadyNavierStokes, self).__init__()
         self.model = nn.Sequential(
-            nn.Linear(3, 10), activation_function,
-            nn.Linear(10, 10), activation_function,
-            nn.Linear(10, 10), activation_function,
-            nn.Linear(10, 10), activation_function,
-            nn.Linear(10, 10), activation_function,
-            nn.Linear(10, 10), activation_function,
-            nn.Linear(10, 10), activation_function,
-            nn.Linear(10, 4)
+            nn.Linear(3, 20), activation_function,
+            nn.Linear(20, 20), activation_function,
+            nn.Linear(20, 20), activation_function,
+            nn.Linear(20, 20), activation_function,
+            nn.Linear(20, 20), activation_function,
+            nn.Linear(20, 20), activation_function,
+            nn.Linear(20, 4)
         )
 
     def forward(self, data):
@@ -32,8 +31,8 @@ class SteadyNavierStokes(nn.Module):
 
 
 model = SteadyNavierStokes()
-mse_loss = nn.MSELoss()
-optimiser = torch.optim.SGD(model.parameters(), lr=lr)
+mse_loss = nn.HuberLoss()
+optimiser = torch.optim.Adam(lr=lr, params=model.parameters())
 
 inputs = []
 labels = []
@@ -48,11 +47,18 @@ losses = []
 
 for epoch in range(epochs):
     for i in range(len(inputs)):
+
         my_input = inputs[i]
         label = labels[i]
-        num_of_points = my_input.size()
+
         predictions = model(my_input)
         loss = mse_loss(predictions, label)
+
+        u = predictions[:, 0]
+        x = my_input[:, 0]
+
+#        u_x = torch.autograd.grad(u, x, grad_outputs=torch.ones_like(x), create_graph=True, only_inputs=True)[0]
+
         optimiser.zero_grad()
         loss.backward()
         optimiser.step()
