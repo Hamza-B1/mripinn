@@ -48,8 +48,8 @@ losses = []
 for epoch in range(epochs):
     for i in range(len(inputs)):
 
-        my_input = inputs[i]
-        label = labels[i]
+        my_input = torch.tensor(inputs[i], requires_grad=True)
+        label = torch.tensor(labels[i], requires_grad=True)
 
         predictions = model(my_input)
         loss = mse_loss(predictions, label)
