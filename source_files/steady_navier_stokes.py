@@ -1,21 +1,18 @@
 import torch
 import torch.nn as nn
-import time
-from matplotlib import pyplot as plt
-import import_data
+from import_data import create_data_tensors_from_csv
 
-torch.set_default_dtype(torch.float64)
-
-# Hyperparameters
-lr = 0.003
-activation_function = nn.LeakyReLU()
+activation_function = nn.ReLU()
 epochs = 200
 
+dataset_1 = create_data_tensors_from_csv("../data/CFD_vtm/csv_data/r001.csv")
+dataset_6 = create_data_tensors_from_csv("../data/CFD_vtm/csv_data/r006.csv")
+dataset_11 = create_data_tensors_from_csv("../data/CFD_vtm/csv_data/r0011.csv")
 
-# In: x,y,z, Out: u,v,w,p
 class SteadyNavierStokes(nn.Module):
+
     def __init__(self):
-        super(SteadyNavierStokes, self).__init__()
+        super().__init__()
         self.model = nn.Sequential(
             nn.Linear(3, 20), activation_function,
             nn.Linear(20, 20), activation_function,
@@ -23,50 +20,46 @@ class SteadyNavierStokes(nn.Module):
             nn.Linear(20, 20), activation_function,
             nn.Linear(20, 20), activation_function,
             nn.Linear(20, 20), activation_function,
-            nn.Linear(20, 4)
+            nn.Linear(20, 1)
         )
 
-    def forward(self, data):
-        return self.model(data)
+    def forward(self, x, y, z):
+        inputs = torch.stack((x, y, z), dim=1)
+        return self.model(inputs)
 
 
-model = SteadyNavierStokes()
-mse_loss = nn.HuberLoss()
-optimiser = torch.optim.Adam(lr=lr, params=model.parameters())
+net = SteadyNavierStokes()
+mse = nn.MSELoss()
+optimiser = torch.optim.Adam(net.parameters(), lr=0.01)
 
-inputs = []
-labels = []
 
-for i in (1, 6, 11):
-    x, y = import_data.create_data_tensors_from_csv(f"../data/CFD_vtm/csv_data/r00{i}.csv")
-    inputs.append(x)
-    labels.append(y)
+def call_network(x, y, z, network):
+    results = network(x, y, z)
 
-start_time = time.time()
-losses = []
+    return results  # u, v, w
+
+
+
 
 for epoch in range(epochs):
-    for i in range(len(inputs)):
+    for dataset in dataset_1, dataset_6, dataset_11:
+        x = torch.tensor(dataset[0], requires_grad=True, dtype=torch.float32)
+        y = torch.tensor(dataset[1], requires_grad=True, dtype=torch.float32)
+        z = torch.tensor(dataset[2], requires_grad=True, dtype=torch.float32)
+        u_train = torch.tensor(dataset[3], requires_grad=True, dtype=torch.float32)
+        # v_train = torch.tensor(dataset[4], requires_grad=True, dtype=torch.float32)
+        # w_train = torch.tensor(dataset[5], requires_grad=True, dtype=torch.float32)
 
-        my_input = inputs[i]
-        label = labels[i]
+        # u, v, w = call_network(x, y, z, net)
 
-        predictions = model(my_input)
-        loss = mse_loss(predictions, label)
+        u = call_network(x, y, z, net)
+        u_mse = mse(torch.transpose(x, -1, 0), u_train)
+        # v_mse = mse(v, v_train)
+        # w_mse = mse(w, w_train)
 
-        u = predictions[:, 0]
-        x = my_input[:, 0]
-
-#        u_x = torch.autograd.grad(u, x, grad_outputs=torch.ones_like(x), create_graph=True, only_inputs=True)[0]
-
+        loss = u_mse  # + v_mse + w_mse
         optimiser.zero_grad()
         loss.backward()
         optimiser.step()
-        print(f"Loss: {loss}")
-        losses.append(loss.item())
-
-elapsed = time.time() - start_time
-print(f"Training time: {elapsed}")
-plt.plot(losses)
-plt.title("Loss over epochs")
-plt.show()
+        print(f"Loss: {loss.item()}")
+        print(f"U value: {u[0]}")
