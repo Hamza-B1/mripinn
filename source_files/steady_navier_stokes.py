@@ -2,14 +2,32 @@ import torch
 import torch.nn as nn
 import time
 from matplotlib import pyplot as plt
-import import_data
+from import_data import create_data_tensors_from_csv
+
+device = ("cuda" if torch.cuda.is_available()
+          else "mps"
+if torch.backends.mps.is_available()
+else "cpu"
+          )
+
+# if device == "cuda":
+torch.set_default_tensor_type('torch.cuda.FloatTensor')
+print(f"Using {device} device")
 
 torch.set_default_dtype(torch.float64)
 
+dataset_1 = create_data_tensors_from_csv("../data/CFD_vtm/csv_data/r001.csv")
+dataset_6 = create_data_tensors_from_csv("../data/CFD_vtm/csv_data/r006.csv")
+dataset_11 = create_data_tensors_from_csv("../data/CFD_vtm/csv_data/r0011.csv")
+
 # Hyperparameters
-lr = 0.003
+lr = 0.001
 activation_function = nn.LeakyReLU()
-epochs = 200
+epochs = 20
+
+# fluid parameters
+nu = 0.1
+rho = 1050
 
 
 # In: x,y,z, Out: u,v,w,p
@@ -26,43 +44,70 @@ class SteadyNavierStokes(nn.Module):
             nn.Linear(20, 4)
         )
 
-    def forward(self, data):
-        return self.model(data)
+    def forward(self, x, y, z):
+        inputs = torch.stack((x, y, z), dim=1)
+        return self.model(inputs)
 
 
 model = SteadyNavierStokes()
-mse_loss = nn.HuberLoss()
+mse_loss = nn.MSELoss()
 optimiser = torch.optim.Adam(lr=lr, params=model.parameters())
-
-inputs = []
-labels = []
-
-for i in (1, 6, 11):
-    x, y = import_data.create_data_tensors_from_csv(f"../data/CFD_vtm/csv_data/r00{i}.csv")
-    inputs.append(x)
-    labels.append(y)
 
 start_time = time.time()
 losses = []
-
 for epoch in range(epochs):
-    for i in range(len(inputs)):
-
-        my_input = inputs[i]
-        label = labels[i]
-
-        predictions = model(my_input)
-        loss = mse_loss(predictions, label)
+    for dataset in dataset_1, dataset_6, dataset_11:
+        x = torch.tensor(dataset[0], requires_grad=True)
+        y = torch.tensor(dataset[1], requires_grad=True)
+        z = torch.tensor(dataset[2], requires_grad=True)
+        u_train = torch.tensor(dataset[3], requires_grad=True)
+        v_train = torch.tensor(dataset[4], requires_grad=True)
+        w_train = torch.tensor(dataset[5], requires_grad=True)
+        p_train = torch.tensor(dataset[6], requires_grad=True)
+        predictions = model(x, y, z)
 
         u = predictions[:, 0]
-        x = my_input[:, 0]
+        v = predictions[:, 1]
+        w = predictions[:, 2]
+        p = predictions[:, 3]
 
-#        u_x = torch.autograd.grad(u, x, grad_outputs=torch.ones_like(x), create_graph=True, only_inputs=True)[0]
+        u_x = torch.autograd.grad(u.sum(), x, create_graph=True)[0]
+        u_xx = torch.autograd.grad(u_x.sum(), x, create_graph=True)[0]
+        u_y = torch.autograd.grad(u.sum(), y, create_graph=True)[0]
+        u_yy = torch.autograd.grad(u_y.sum(), y, create_graph=True)[0]
+        u_z = torch.autograd.grad(u.sum(), z, create_graph=True)[0]
+        u_zz = torch.autograd.grad(u_z.sum(), z, create_graph=True)[0]
 
+        v_x = torch.autograd.grad(u.sum(), x, create_graph=True)[0]
+        v_xx = torch.autograd.grad(u_x.sum(), x, create_graph=True)[0]
+        v_y = torch.autograd.grad(u.sum(), y, create_graph=True)[0]
+        v_yy = torch.autograd.grad(u_y.sum(), y, create_graph=True)[0]
+        v_z = torch.autograd.grad(u.sum(), z, create_graph=True)[0]
+        v_zz = torch.autograd.grad(u_z.sum(), z, create_graph=True)[0]
+
+        w_x = torch.autograd.grad(u.sum(), x, create_graph=True)[0]
+        w_xx = torch.autograd.grad(u_x.sum(), x, create_graph=True)[0]
+        w_y = torch.autograd.grad(u.sum(), y, create_graph=True)[0]
+        w_yy = torch.autograd.grad(u_y.sum(), y, create_graph=True)[0]
+        w_z = torch.autograd.grad(u.sum(), z, create_graph=True)[0]
+        w_zz = torch.autograd.grad(u_z.sum(), z, create_graph=True)[0]
+
+        p_x = torch.autograd.grad(p.sum(), x, create_graph=True)[0]
+        p_y = torch.autograd.grad(p.sum(), y, create_graph=True)[0]
+        p_z = torch.autograd.grad(p.sum(), z, create_graph=True)[0]
+
+        u_loss = mse_loss(u, u_train)
+        v_loss = mse_loss(v, v_train)
+        w_loss = mse_loss(w, w_train)
+        p_loss = mse_loss(p, p_train)
+
+        div = u_x + v_y + w_z
+
+        loss = u_loss + p_loss + v_loss + w_loss + torch.pow(div.sum(), 2)
         optimiser.zero_grad()
         loss.backward()
         optimiser.step()
-        print(f"Loss: {loss}")
+        print(f"Loss: {loss.item()}")
         losses.append(loss.item())
 
 elapsed = time.time() - start_time
