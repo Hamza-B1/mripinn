@@ -2,7 +2,7 @@ import torch
 import pandas as pd
 
 
-def create_data_tensors_from_csv(path):
+def create_data_from_csv(path):
     data = pd.read_csv(path)
     x = data["Points_0"].values
     y = data["Points_1"].values
