@@ -1,4 +1,4 @@
-import torch
+import math
 import pandas as pd
 
 
@@ -12,5 +12,10 @@ def create_data_from_csv(path):
     v = data["U_1"].values
     w = data["U_2"].values
     p = data["p"].values
+
+    for i in x, y, z, u, v, w, p:
+        max_val = max(i)
+        min_val = min(i)
+        i = [(v - min_val) / (max_val - min_val) for v in i]
 
     return x, y, z, u, v, w, p

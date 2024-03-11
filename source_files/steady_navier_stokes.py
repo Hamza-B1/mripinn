@@ -22,7 +22,7 @@ dataset_11 = create_data_from_csv("../data/CFD_vtm/csv_data/r0011.csv")
 dataset_2 = create_data_from_csv("../data/CFD_vtm/csv_data/r002.csv")
 
 # Hyperparameters
-lr = 0.0009
+lr = 0.0008
 activation_function = nn.LeakyReLU()
 epochs = 20
 
@@ -148,7 +148,8 @@ xi, yi = np.meshgrid(xi, yi)
 
 zi = griddata((z.detach(), y.detach()), w.detach(), (xi, yi), method='cubic')
 zi_true = griddata((z.detach(), y.detach()), w.detach(), (xi, yi), method='cubic')
-plt.contourf(xi, yi, zi_true, levels=20)
+
+plt.contourf(xi, yi, zi, levels=20)
 
 plt.title("True Axial Velocity (m/s)")
 plt.xlabel("z (m)")
