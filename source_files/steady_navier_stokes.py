@@ -5,6 +5,7 @@ from matplotlib import pyplot as plt
 from import_data import create_data_from_csv
 import numpy as np
 from scipy.interpolate import griddata
+from generate_mri_data import *
 
 device = ("cuda" if torch.cuda.is_available()
           else "mps"
@@ -22,7 +23,7 @@ dataset_11 = create_data_from_csv("../data/CFD_vtm/csv_data/r0011.csv")
 dataset_2 = create_data_from_csv("../data/CFD_vtm/csv_data/r002.csv")
 
 # Hyperparameters
-lr = 0.0005
+lr = 0.001
 activation_function = nn.LeakyReLU()
 epochs = 20
 
@@ -48,6 +49,7 @@ class SteadyNavierStokes(nn.Module):
     def forward(self, x, y, z):
         inputs = torch.stack((x, y, z), dim=1)
         return self.model(inputs)
+
 
 
 model = SteadyNavierStokes()
@@ -103,19 +105,14 @@ for epoch in range(epochs):
         p_loss = mse_loss(p, p_train)
 
         div = u_x + v_y + w_z
-        u_deriv_sum = u_xx + u_yy + u_zz
-        v_deriv_sum = v_xx + v_yy + v_zz
-        w_deriv_sum = w_xx + w_yy + w_zz
-        pressure_eq_x = rho * (u * u_x + v * u_y + w * u_z) + p_x - nu * u_deriv_sum
-        pressure_eq_y = rho * (u * v_x + v * v_y + w * v_z) + p_x - nu * v_deriv_sum
-        pressure_eq_z = rho * (u * w_x + v * w_y + w * w_z) + p_x - nu * w_deriv_sum
 
-        loss = u_loss + p_loss + v_loss + w_loss + torch.pow(div.sum(), 2) + torch.abs(pressure_eq_x.sum()) + torch.abs(pressure_eq_y.sum()) + torch.abs(pressure_eq_z.sum())
+        loss = u_loss + p_loss + v_loss + w_loss + torch.pow(div.sum(), 2)
         optimiser.zero_grad()
         loss.backward()
         optimiser.step()
         print(f"Loss: {loss.item()}")
         losses.append(loss.item())
+
 
 elapsed = time.time() - start_time
 print(f"Training time: {elapsed}")
@@ -127,6 +124,7 @@ x = torch.tensor(dataset_2[0], requires_grad=True)
 y = torch.tensor(dataset_2[1], requires_grad=True)
 z = torch.tensor(dataset_2[2], requires_grad=True)
 true_w = dataset_2[5]
+
 
 test = model(x, y, z)
 
@@ -153,6 +151,7 @@ xi, yi = np.meshgrid(xi, yi)
 
 zi = griddata((z.detach(), y.detach()), w.detach(), (xi, yi), method='cubic')
 zi_true = griddata((z.detach(), y.detach()), w.detach(), (xi, yi), method='cubic')
+
 plt.contourf(xi, yi, zi, levels=20)
 
 plt.title("True Axial Velocity (m/s)")
@@ -161,3 +160,5 @@ plt.ylabel("y (m)")
 plt.colorbar()
 
 plt.show()
+
+
